@@ -1,4 +1,4 @@
-Logs
+#Logs
 
 logs
 .log
@@ -8,20 +8,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-Dependencies & Build
+#Dependencies & Build
 
 node_modules/
 dist/
 dist-ssr/
 build/
 
-Security & Environment Variables (CRITICAL)
-backend/.env
+#Security & Environment Variables (CRITICAL)
+
 .env
 .env.*
 *.local
 
-Editor directories and files
+#Editor directories and files
 
 .vscode/*
 !.vscode/extensions.json
@@ -33,7 +33,7 @@ Editor directories and files
 *.sln
 *.sw?
 
-Terraform
+#Terraform
 
 .terraform/
 terraform.tfstate
