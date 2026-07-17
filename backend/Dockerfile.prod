@@ -1,0 +1,58 @@
+#STAGE 1: Build (Heavy, contains all dev dependencies)
+
+FROM node:20-slim AS builder
+WORKDIR /app
+
+#Install OpenSSL for Prisma engine
+
+RUN apt-get update -y && apt-get install -y openssl
+
+#Copy package files and schema first
+
+COPY package*.json ./
+COPY prisma ./prisma/
+
+#Install dependencies (including dev)
+
+RUN npm install
+
+#Copy source code and build
+
+COPY . .
+RUN npm run build
+RUN npx prisma generate
+
+#STAGE 2: Production (Lightweight, contains only compiled code)
+
+FROM node:20-slim
+WORKDIR /app
+
+#Install OpenSSL for Prisma runtime
+
+RUN apt-get update -y && apt-get install -y openssl
+
+#Install ONLY production dependencies
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+#CRITICAL FIX 2: Pin the Prisma CLI to v5.22.0 to match your project
+
+#If we don't pin this, npm installs Prisma 7 which breaks older schema formats!
+
+RUN npm install -g prisma@5.22.0
+
+#Copy compiled JavaScript and Prisma engine from Stage 1
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+#Expose our API port
+
+EXPOSE 5000
+
+#Start the server: Run migrations FIRST, then start Node
+
+CMD ["sh", "-c", "prisma migrate deploy && node dist/server.js"]

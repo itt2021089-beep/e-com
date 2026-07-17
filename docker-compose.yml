@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecommerce-db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: securepassword123
+      POSTGRES_DB: ecommerce_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: ecommerce-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://admin:securepassword123@postgres:5432/ecommerce_db?schema=public
+      - JWT_SECRET=production_super_secret_key_123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # We override the command slightly to ensure Prisma migrations run before the server starts
+    command: sh -c "npx prisma migrate deploy && node dist/server.js"
+    networks:
+      - cloud-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        # In a real cloud, this would be your production domain (e.g., https://api.my-store.com/api/v1)
+        - VITE_API_URL=http://localhost:5000/api/v1 
+    container_name: ecommerce-frontend
+    ports:
+      - "3000:80" # Nginx runs on 80 inside the container, we map it to 3000 on your machine
+    depends_on:
+      - backend
+    networks:
+      - cloud-network
+
+networks:
+  cloud-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
